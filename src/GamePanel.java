@@ -1,11 +1,13 @@
 import javax.swing.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class GamePanel extends JPanel {
 
     Grid grid = new Grid();
     Chaser ch = new Chaser(0, 0);
+    Chaser ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2); // Pink tarzı
     Escaper es = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
 
     public GamePanel() {
@@ -21,34 +23,66 @@ public class GamePanel extends JPanel {
     private void gameLoop() {
         while (true) {
 
-            // Chaser uses A*
+            //-----------------------------
+            // CHASER 1 - A* normal
+            //-----------------------------
             Node start = new Node(ch.r, ch.c);
             Node goal = new Node(es.r, es.c);
             List<Node> path = AStar.search(start, goal, grid);
+            Node next = null;
+            if (path != null && path.size() > 1) next = path.get(1);
 
-            if (path != null && path.size() > 1) {
-                Node next = path.get(1);
+            if (next != null && !(next.r == ch2.r && next.c == ch2.c)) {
                 ch.move(next.r, next.c);
             }
 
-            // Collision?
-            if (ch.r == es.r && ch.c == es.c) {
-                JOptionPane.showMessageDialog(this, "Chaser Wins!");
+            //-----------------------------
+            // CHASER 2 - Pink tarzı A*
+            //-----------------------------
+            Node start2 = new Node(ch2.r, ch2.c);
+            Node predictedTarget = AStar.predictEscaperTarget(es, grid, 2); // 2 adım ileri tahmin
+            List<Node> path2 = AStar.search(start2, predictedTarget, grid);
+            Node next2 = null;
+            if (path2 != null && path2.size() > 1) next2 = path2.get(1);
+
+            if (next2 != null && !(next2.r == ch.r && next2.c == ch.c)) {
+                ch2.move(next2.r, next2.c);
+            }
+
+            //-----------------------------
+            // COLLISION CHECK
+            //-----------------------------
+            if ((ch.r == es.r && ch.c == es.c) ||
+                    (ch2.r == es.r && ch2.c == es.c))
+            {
+                JOptionPane.showMessageDialog(this, "Chasers Win!");
                 System.exit(0);
             }
 
-            // Escaper uses Minimax
-            int[] m = Minimax.bestMove(ch, es, grid, 3);
+            //-----------------------------
+            // ESCAPER - Minimax
+            //-----------------------------
+            List<Chaser> clist = new ArrayList<>();
+            clist.add(ch);
+            clist.add(ch2);
+
+            int[] m = Minimax.bestMove(clist, es, grid, 3);
             es.move(m[0], m[1]);
 
             repaint();
 
-            if (ch.r == es.r && ch.c == es.c) {
-                JOptionPane.showMessageDialog(this, "Chaser Wins!");
+            //-----------------------------
+            // COLLISION AGAIN
+            //-----------------------------
+            if ((ch.r == es.r && ch.c == es.c) ||
+                    (ch2.r == es.r && ch2.c == es.c))
+            {
+                JOptionPane.showMessageDialog(this, "Chasers Win!");
                 System.exit(0);
             }
 
-            try { Thread.sleep(300); } catch (Exception ignored) {}
+            try { Thread.sleep(300); }
+            catch (Exception ignored) {}
         }
     }
 
@@ -58,9 +92,10 @@ public class GamePanel extends JPanel {
 
         int size = 40;
 
-        // grid
+        // GRID ÇİZ
         for (int r = 0; r < Grid.ROWS; r++) {
             for (int c = 0; c < Grid.COLS; c++) {
+
                 if (Grid.map[r][c] == 1)
                     g.setColor(Color.BLACK);
                 else
@@ -72,11 +107,15 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // Chaser
+        // CHASER 1
         g.setColor(Color.RED);
         g.fillOval(ch.c * size + 5, ch.r * size + 5, size - 10, size - 10);
 
-        // Escaper
+        // CHASER 2
+        g.setColor(Color.BLACK);
+        g.fillOval(ch2.c * size + 5, ch2.r * size + 5, size - 10, size - 10);
+
+        // ESCAPER
         g.setColor(Color.BLUE);
         g.fillOval(es.c * size + 5, es.r * size + 5, size - 10, size - 10);
     }

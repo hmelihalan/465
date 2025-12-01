@@ -18,6 +18,7 @@ public class Grid {
             }
         }
         map[0][0] = 0;
+        map[ROWS/2][COLS/2] = 0;
         map[ROWS - 1][COLS - 1] = 0;
     }
 

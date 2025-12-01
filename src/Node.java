@@ -5,11 +5,13 @@ public class Node {
     public Node parent;
 
     public Node(int r, int c) {
-        this.r = r; this.c = c;
+        this.r = r;
+        this.c = c;
     }
 
     @Override
     public boolean equals(Object o) {
+        if (!(o instanceof Node)) return false;
         Node n = (Node) o;
         return n.r == r && n.c == c;
     }
