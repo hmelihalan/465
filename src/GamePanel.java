@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 public class GamePanel extends JPanel {
 
@@ -11,12 +12,14 @@ public class GamePanel extends JPanel {
     Escaper es = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
 
     public GamePanel() {
+        Scanner sc = new Scanner(System.in);
         JFrame frame = new JFrame("Chaser vs Escaper");
         frame.setSize(650, 650);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.add(this);
         frame.setVisible(true);
 
+        sc.nextLine();
         gameLoop();
     }
 

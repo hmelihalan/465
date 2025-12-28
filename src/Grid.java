@@ -2,8 +2,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Grid {
-    public static final int ROWS = 15;
-    public static final int COLS = 15;
+    public static final int ROWS = 20;
+    public static final int COLS = 20;
     public static int[][] map = new int[ROWS][COLS]; // 0 = empty, 1 = wall
 
     public Grid() {
