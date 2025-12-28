@@ -8,7 +8,7 @@ public class GamePanel extends JPanel {
 
     Grid grid = new Grid();
     Chaser ch = new Chaser(0, 0);
-    Chaser ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2); // Pink tarzı
+    Chaser ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2);
     Escaper es = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
 
     public GamePanel() {
@@ -27,37 +27,39 @@ public class GamePanel extends JPanel {
         while (true) {
 
             //-----------------------------
-            // CHASER 1 - A* normal
+            // CHASER 1 - A*
             //-----------------------------
             Node start = new Node(ch.r, ch.c);
             Node goal = new Node(es.r, es.c);
             List<Node> path = AStar.search(start, goal, grid);
-            Node next = null;
-            if (path != null && path.size() > 1) next = path.get(1);
 
-            if (next != null && !(next.r == ch2.r && next.c == ch2.c)) {
-                ch.move(next.r, next.c);
+            if (path != null && path.size() > 1) {
+                Node next = path.get(1);
+                if (!(next.r == ch2.r && next.c == ch2.c)) {
+                    ch.move(next.r, next.c);
+                }
             }
 
             //-----------------------------
             // CHASER 2 - Pink tarzı A*
             //-----------------------------
             Node start2 = new Node(ch2.r, ch2.c);
-            Node predictedTarget = AStar.predictEscaperTarget(es, grid, 2); // 2 adım ileri tahmin
-            List<Node> path2 = AStar.search(start2, predictedTarget, grid);
-            Node next2 = null;
-            if (path2 != null && path2.size() > 1) next2 = path2.get(1);
+            Node predicted = AStar.predictEscaperTarget(es, grid, 2);
+            List<Node> path2 = AStar.search(start2, predicted, grid);
 
-            if (next2 != null && !(next2.r == ch.r && next2.c == ch.c)) {
-                ch2.move(next2.r, next2.c);
+            if (path2 != null && path2.size() > 1) {
+                Node next2 = path2.get(1);
+                if (!(next2.r == ch.r && next2.c == ch.c)) {
+                    ch2.move(next2.r, next2.c);
+                }
             }
 
             //-----------------------------
-            // COLLISION CHECK
+            // COLLISION
             //-----------------------------
             if ((ch.r == es.r && ch.c == es.c) ||
-                    (ch2.r == es.r && ch2.c == es.c))
-            {
+                    (ch2.r == es.r && ch2.c == es.c)) {
+
                 JOptionPane.showMessageDialog(this, "Chasers Win!");
                 System.exit(0);
             }
@@ -78,8 +80,8 @@ public class GamePanel extends JPanel {
             // COLLISION AGAIN
             //-----------------------------
             if ((ch.r == es.r && ch.c == es.c) ||
-                    (ch2.r == es.r && ch2.c == es.c))
-            {
+                    (ch2.r == es.r && ch2.c == es.c)) {
+
                 JOptionPane.showMessageDialog(this, "Chasers Win!");
                 System.exit(0);
             }
@@ -95,7 +97,9 @@ public class GamePanel extends JPanel {
 
         int size = 40;
 
-        // GRID ÇİZ
+        //-----------------------------
+        // GRID
+        //-----------------------------
         for (int r = 0; r < Grid.ROWS; r++) {
             for (int c = 0; c < Grid.COLS; c++) {
 
@@ -110,16 +114,59 @@ public class GamePanel extends JPanel {
             }
         }
 
-        // CHASER 1
-        g.setColor(Color.RED);
-        g.fillOval(ch.c * size + 5, ch.r * size + 5, size - 10, size - 10);
+        //-----------------------------
+        // PAC-MAN SETTINGS
+        //-----------------------------
+        int mouth = 60;
 
-        // CHASER 2
-        g.setColor(Color.BLACK);
-        g.fillOval(ch2.c * size + 5, ch2.r * size + 5, size - 10, size - 10);
+        //-----------------------------
+        // CHASER 1 - RED PACMAN
+        //-----------------------------
+        g.setColor(Color.green);
+        g.fillArc(
+                ch.c * size + 5,
+                ch.r * size + 5,
+                size - 10,
+                size - 10,
+                pacmanAngle(ch.dir, mouth),
+                360 - mouth
+        );
 
+        //-----------------------------
+        // CHASER 2 - BLACK PACMAN
+        //-----------------------------
+        g.setColor(Color.cyan);
+        g.fillArc(
+                ch2.c * size + 5,
+                ch2.r * size + 5,
+                size - 10,
+                size - 10,
+                pacmanAngle(ch2.dir, mouth),
+                360 - mouth
+        );
+
+        //-----------------------------
         // ESCAPER
-        g.setColor(Color.BLUE);
-        g.fillOval(es.c * size + 5, es.r * size + 5, size - 10, size - 10);
+        //-----------------------------
+        g.setColor(Color.MAGENTA);
+        g.fillOval(
+                es.c * size + 5,
+                es.r * size + 5,
+                size - 10,
+                size - 10
+        );
+    }
+
+    //-----------------------------
+    // PAC-MAN DIRECTION ANGLE
+    //-----------------------------
+    private int pacmanAngle(int dir, int mouth) {
+        switch (dir) {
+            case 0: return mouth / 2;            // RIGHT
+            case 1: return 270 + mouth / 2;      // DOWN
+            case 2: return 180 + mouth / 2;      // LEFT
+            case 3: return 90 + mouth / 2;       // UP
+        }
+        return 0;
     }
 }
