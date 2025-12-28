@@ -1,7 +1,6 @@
 public class Node {
     public int r, c;
     public double g, h, f;
-
     public Node parent;
 
     public Node(int r, int c) {

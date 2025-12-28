@@ -1,25 +1,30 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class Grid {
     public static final int ROWS = 15;
     public static final int COLS = 15;
-    public static int[][] map = new int[ROWS][COLS]; // 0 = empty, 1 = wall
 
-    public Grid() {
-        generateWalls();
+    public final int[][] map = new int[ROWS][COLS]; // 0 = empty, 1 = wall
+    private final Random rng;
+
+    public Grid(long seed, double wallDensity) {
+        this.rng = new Random(seed);
+        generateWalls(wallDensity);
+
+        // Ensure start points are not walls
+        map[0][0] = 0;
+        map[ROWS / 2][COLS / 2] = 0;
+        map[ROWS - 1][COLS - 1] = 0;
     }
 
-    private void generateWalls() {
-        // Random walls
+    private void generateWalls(double wallDensity) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
-                if (Math.random() < 0.15) map[r][c] = 1;
+                map[r][c] = (rng.nextDouble() < wallDensity) ? 1 : 0;
             }
         }
-        map[0][0] = 0;
-        map[ROWS/2][COLS/2] = 0;
-        map[ROWS - 1][COLS - 1] = 0;
     }
 
     public boolean isValid(int r, int c) {

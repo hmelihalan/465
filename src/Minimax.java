@@ -4,15 +4,23 @@ import java.util.Random;
 
 public class Minimax {
 
-    private static Random rand = new Random();
+    private static final Random rand = new Random();
 
-    // chasers listesi eklendi
+    // --- STATS (last call / cumulative) ---
+    private static long lastEvaluatedStates = 0;
+
+    public static long getLastEvaluatedStates() {
+        return lastEvaluatedStates;
+    }
+
     public static int[] bestMove(List<Chaser> chasers, Escaper es, Grid grid, int depth) {
-        int bestScore = Integer.MIN_VALUE;
+        lastEvaluatedStates = 0;
 
+        int bestScore = Integer.MIN_VALUE;
         List<int[]> bestMoves = new ArrayList<>();
 
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        // include "stay" to prevent empty-move crash
+        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1},{0,0}};
 
         for (int[] d : dirs) {
             int nr = es.r + d[0];
@@ -31,18 +39,23 @@ public class Minimax {
             }
         }
 
+        if (bestMoves.isEmpty()) {
+            // fallback: don't move
+            return new int[]{es.r, es.c};
+        }
+
         return bestMoves.get(rand.nextInt(bestMoves.size()));
     }
 
     private static int minimax(List<Chaser> chasers, int er, int ec, Grid grid, int depth, boolean maximizing) {
+        lastEvaluatedStates++;
 
-        // Eğer escaper herhangi bir chaser ile aynı karedeyse büyük ceza
+        // capture check
         for (Chaser ch : chasers) {
             if (ch.r == er && ch.c == ec) return -1000;
         }
 
         if (depth == 0) {
-            // En yakın chaser ile mesafe
             int minDist = Integer.MAX_VALUE;
             for (Chaser ch : chasers) {
                 int dist = Math.abs(ch.r - er) + Math.abs(ch.c - ec);
@@ -51,44 +64,47 @@ public class Minimax {
             return minDist;
         }
 
-        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
+        int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1},{0,0}};
 
         if (maximizing) { // ESCAPER
             int maxEval = Integer.MIN_VALUE;
+            boolean moved = false;
+
             for (int[] d : dirs) {
                 int nr = er + d[0];
                 int nc = ec + d[1];
-
                 if (!grid.isValid(nr, nc)) continue;
 
+                moved = true;
                 int eval = minimax(chasers, nr, nc, grid, depth - 1, false);
                 maxEval = Math.max(maxEval, eval);
             }
-            return maxEval;
-        } else { // CHASERS simülasyonu
+
+            return moved ? maxEval : Integer.MIN_VALUE;
+        } else { // CHASERS (your original model: one chaser moves per minimizing step)
             int minEval = Integer.MAX_VALUE;
+            boolean movedAny = false;
+
             for (Chaser ch : chasers) {
                 for (int[] d : dirs) {
                     int nr = ch.r + d[0];
                     int nc = ch.c + d[1];
-
                     if (!grid.isValid(nr, nc)) continue;
 
-                    // Diğer chaser'ları olduğu gibi bırakıyoruz
+                    movedAny = true;
+
                     List<Chaser> newChasers = new ArrayList<>();
                     for (Chaser c : chasers) {
-                        if (c == ch) {
-                            newChasers.add(new Chaser(nr, nc)); // bu chaser'ı hareket ettir
-                        } else {
-                            newChasers.add(new Chaser(c.r, c.c)); // diğerleri aynı
-                        }
+                        if (c == ch) newChasers.add(new Chaser(nr, nc));
+                        else newChasers.add(new Chaser(c.r, c.c));
                     }
 
                     int eval = minimax(newChasers, er, ec, grid, depth - 1, true);
                     minEval = Math.min(minEval, eval);
                 }
             }
-            return minEval;
+
+            return movedAny ? minEval : Integer.MAX_VALUE;
         }
     }
 }
