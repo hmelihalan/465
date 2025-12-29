@@ -3,8 +3,8 @@ import java.util.List;
 import java.util.Random;
 
 public class Grid {
-    public static final int ROWS = 15;
-    public static final int COLS = 15;
+    public static final int ROWS = 20;
+    public static final int COLS = 20;
 
     public final int[][] map = new int[ROWS][COLS]; // 0 = empty, 1 = wall
     private final Random rng;
