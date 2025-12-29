@@ -65,14 +65,10 @@ public class GamePanel extends JPanel {
             }
 
             //-----------------------------
-            // ESCAPER - Minimax
+            // ESCAPER - NEURAL NETWORK
+            // (MINIMAX KALDIRILDI, SADECE BU SATIR EKLENDİ)
             //-----------------------------
-            List<Chaser> clist = new ArrayList<>();
-            clist.add(ch);
-            clist.add(ch2);
-
-            int[] m = Minimax.bestMove(clist, es, grid, 3);
-            es.move(m[0], m[1]);
+            es.decideMove(ch, ch2, grid);
 
             repaint();
 
@@ -120,7 +116,7 @@ public class GamePanel extends JPanel {
         int mouth = 60;
 
         //-----------------------------
-        // CHASER 1 - RED PACMAN
+        // CHASER 1
         //-----------------------------
         g.setColor(Color.green);
         g.fillArc(
@@ -133,7 +129,7 @@ public class GamePanel extends JPanel {
         );
 
         //-----------------------------
-        // CHASER 2 - BLACK PACMAN
+        // CHASER 2
         //-----------------------------
         g.setColor(Color.cyan);
         g.fillArc(
