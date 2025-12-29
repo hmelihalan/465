@@ -1,6 +1,4 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class Escaper extends Agent {
 
@@ -13,91 +11,93 @@ public class Escaper extends Agent {
 
     public void decideMove(Chaser c1, Chaser c2, Grid grid) {
 
-        double[] input = buildInput(c1, c2);
-        int action = nn.predict(input);
+        double bestScore = -Double.MAX_VALUE;
+        int bestAction = -1;
 
-        // 1️⃣ NN'nin istediği hareket
-        if (tryMove(action, grid)) {
-            return;
-        }
+        for (int action = 0; action < 4; action++) {
 
-        // 2️⃣ NN başarısızsa → RANDOM GEÇERLİ HAREKET
-        List<Integer> validMoves = new ArrayList<>();
+            int nr = r;
+            int nc = c;
 
-        for (int a = 0; a < 4; a++) {
-            if (canMove(a, grid)) {
-                validMoves.add(a);
+            switch (action) {
+                case 0 -> nr--;
+                case 1 -> nr++;
+                case 2 -> nc--;
+                case 3 -> nc++;
+            }
+
+            if (!grid.isValid(nr, nc))
+                continue;
+
+            double[] input = buildInput(nr, nc, c1, c2, grid);
+            double score = nn.score(input);
+
+            // 🔹 tiny tie-break noise
+            score += rnd.nextDouble() * 0.0005;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestAction = action;
             }
         }
 
-        if (!validMoves.isEmpty()) {
-            int fallback = validMoves.get(rnd.nextInt(validMoves.size()));
-            tryMove(fallback, grid);
+        if (bestAction != -1)
+            moveByAction(bestAction);
+    }
+
+    // ------------------------------------------------
+
+    private double[] buildInput(int nr, int nc,
+                                Chaser c1, Chaser c2,
+                                Grid grid) {
+
+        double d1 = manhattan(nr, nc, c1);
+        double d2 = manhattan(nr, nc, c2);
+
+        double nearest = Math.min(d1, d2);
+        double other   = Math.max(d1, d2);
+
+        double wallPenalty = wallRisk(nr, nc, grid);
+        double deadEnd = deadEndRisk(nr, nc, grid);
+
+        return new double[] {
+                nearest,
+                other,
+                wallPenalty,
+                deadEnd
+        };
+    }
+
+    // 🔧 KRİTİK DEĞİŞİKLİK
+    private double manhattan(int r, int c, Chaser ch) {
+        return (Math.abs(ch.r - r) + Math.abs(ch.c - c)) / 30.0;
+    }
+
+    private double wallRisk(int r, int c, Grid g) {
+        int walls = 0;
+        if (!g.isValid(r - 1, c)) walls++;
+        if (!g.isValid(r + 1, c)) walls++;
+        if (!g.isValid(r, c - 1)) walls++;
+        if (!g.isValid(r, c + 1)) walls++;
+        return walls / 4.0;
+    }
+
+    // 🔧 YUMUŞATILDI
+    private double deadEndRisk(int r, int c, Grid g) {
+        int free = 0;
+        if (g.isValid(r - 1, c)) free++;
+        if (g.isValid(r + 1, c)) free++;
+        if (g.isValid(r, c - 1)) free++;
+        if (g.isValid(r, c + 1)) free++;
+        return (4 - free) / 4.0;
+    }
+
+    private void moveByAction(int a) {
+        switch (a) {
+            case 0 -> move(r - 1, c);
+            case 1 -> move(r + 1, c);
+            case 2 -> move(r, c - 1);
+            case 3 -> move(r, c + 1);
         }
-    }
-
-    // -----------------------------
-
-    private boolean tryMove(int action, Grid grid) {
-        int nr = r;
-        int nc = c;
-
-        switch (action) {
-            case 0 -> nr--; // UP
-            case 1 -> nr++; // DOWN
-            case 2 -> nc--; // LEFT
-            case 3 -> nc++; // RIGHT
-        }
-
-        if (grid.isValid(nr, nc)) {
-            move(nr, nc);
-            return true;
-        }
-        return false;
-    }
-
-    private boolean canMove(int action, Grid grid) {
-        int nr = r;
-        int nc = c;
-
-        switch (action) {
-            case 0 -> nr--;
-            case 1 -> nr++;
-            case 2 -> nc--;
-            case 3 -> nc++;
-        }
-
-        return grid.isValid(nr, nc);
-    }
-
-    // -----------------------------
-
-    private double[] buildInput(Chaser c1, Chaser c2) {
-        double[] in = new double[8];
-
-        in[0] = norm(c1.r - r);
-        in[1] = norm(c1.c - c);
-
-        in[2] = norm(c2.r - r);
-        in[3] = norm(c2.c - c);
-
-        in[4] = r / (double) Grid.ROWS;
-        in[5] = c / (double) Grid.COLS;
-
-        in[6] = distance(c1);
-        in[7] = distance(c2);
-
-        return in;
-    }
-
-    private double norm(int v) {
-        return Math.max(-1, Math.min(1, v / 20.0));
-    }
-
-    private double distance(Chaser ch) {
-        return Math.sqrt(
-                (ch.r - r) * (ch.r - r) +
-                        (ch.c - c) * (ch.c - c)
-        ) / 30.0;
     }
 }

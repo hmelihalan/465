@@ -19,7 +19,7 @@ public class GamePanel extends JPanel {
         frame.add(this);
         frame.setVisible(true);
 
-        sc.nextLine();
+        //sc.nextLine();
         gameLoop();
     }
 

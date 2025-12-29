@@ -1,57 +1,57 @@
 public class NeuralNetwork {
 
-    int inputSize = 8;
-    int hiddenSize = 12;
-    int outputSize = 4; // UP, DOWN, LEFT, RIGHT
+    int inputSize = 4;
+    int hiddenSize = 4;
+    int outputSize = 1; // SCORE
 
     double[][] w1 = new double[inputSize][hiddenSize];
     double[] b1 = new double[hiddenSize];
 
-    double[][] w2 = new double[hiddenSize][outputSize];
-    double[] b2 = new double[outputSize];
+    double[] w2 = new double[hiddenSize];
+    double b2 = 0;
 
     public NeuralNetwork() {
-        init(w1);
-        init(w2);
+        init();
     }
 
-    private void init(double[][] w) {
-        for (int i = 0; i < w.length; i++)
-            for (int j = 0; j < w[0].length; j++)
-                w[i][j] = Math.random() * 2 - 1;
+    private void init() {
+
+        // H0: chaser distance (EN ÖNEMLİ)
+        w1[0][0] = 6.0;
+
+        // H1: second chaser distance
+        w1[1][1] = 3.0;
+
+        // H2: wall penalty
+        w1[2][2] = -1.2;
+
+        // H3: dead-end penalty
+        w1[3][3] = -1.0;
+
+        // OUTPUT
+        w2[0] = 4.5;   // yakın chaser'dan uzaklaşmak = büyük ödül
+        w2[1] = 2.5;
+        w2[2] = 1.0;
+        w2[3] = 1.0;
+
+        b2 = 0.0;
     }
 
-    public int predict(double[] input) {
+    public double score(double[] in) {
 
-        double[] hidden = new double[hiddenSize];
+        double[] h = new double[hiddenSize];
 
-        // INPUT → HIDDEN
         for (int j = 0; j < hiddenSize; j++) {
             double sum = 0;
-            for (int i = 0; i < inputSize; i++) {
-                sum += input[i] * w1[i][j];
-            }
-            hidden[j] = Math.max(0, sum + b1[j]); // ReLU
+            for (int i = 0; i < inputSize; i++)
+                sum += in[i] * w1[i][j];
+            h[j] = Math.max(0, sum + b1[j]);
         }
 
-        double[] out = new double[outputSize];
+        double out = 0;
+        for (int j = 0; j < hiddenSize; j++)
+            out += h[j] * w2[j];
 
-        // HIDDEN → OUTPUT
-        for (int k = 0; k < outputSize; k++) {
-            double sum = 0;
-            for (int j = 0; j < hiddenSize; j++) {
-                sum += hidden[j] * w2[j][k];
-            }
-            out[k] = sum + b2[k];
-        }
-
-        return argMax(out);
-    }
-
-    private int argMax(double[] x) {
-        int idx = 0;
-        for (int i = 1; i < x.length; i++)
-            if (x[i] > x[idx]) idx = i;
-        return idx;
+        return out + b2;
     }
 }
