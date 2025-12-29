@@ -4,7 +4,7 @@ import java.util.List;
 public class Main {
 
     // ---- EXPERIMENT SETTINGS ----
-    static final int RUNS = 1000;
+    static final int RUNS = 1000;         // Target number of VALID runs
     static final int MAX_TURNS = 60;
 
     static final double WALL_DENSITY = 0.15;
@@ -36,11 +36,17 @@ public class Main {
 
         int aStarNullCount = 0;
         
-        // Track runs skipped due to blocked paths
+        // Counters for the retry logic
+        int validRuns = 0;
         int skippedRuns = 0;
+        long seedOffset = 0; // Ensures we always get a new map
 
-        for (int run = 0; run < RUNS; run++) {
-            long seed = 1000L + run;
+        // CHANGED: Loop until we have enough VALID runs
+        while (validRuns < RUNS) {
+            
+            // Unique seed for every attempt (valid or invalid)
+            long seed = 1000L + seedOffset; 
+            seedOffset++;
 
             Grid grid = new Grid(seed, WALL_DENSITY);
 
@@ -48,19 +54,18 @@ public class Main {
             Chaser ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2);
             Escaper es = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
 
-            // ---- NEW FEATURE: STRICT REACHABILITY CHECK ----
-            // Check if Chaser 1 can reach Escaper
+            // ---- REACHABILITY CHECK ----
             List<Node> checkPath1 = AStar.search(new Node(ch1.r, ch1.c), new Node(es.r, es.c), grid);
-            // Check if Chaser 2 can reach Escaper
             List<Node> checkPath2 = AStar.search(new Node(ch2.r, ch2.c), new Node(es.r, es.c), grid);
 
-            // CHANGED: If EITHER chaser is blocked, the game is obsolete.
+            // If EITHER chaser is blocked, skip but DO NOT increment 'validRuns'
             if (checkPath1 == null || checkPath2 == null) {
                 skippedRuns++;
-                continue; // Skip the rest of this loop iteration
+                continue; 
             }
-            // -----------------------------------------
+            // -----------------------------
 
+            // If we get here, the map is valid. Play the game.
             int turns = 0;
             boolean caught = false;
 
@@ -141,44 +146,41 @@ public class Main {
 
             if (caught) chaserWins++;
             else escaperSurvives++;
+            
+            // Mark this run as complete
+            validRuns++;
         }
 
         // ---- REPORT ----
-        int actualRuns = RUNS - skippedRuns; 
-        
         System.out.println("===== EXPERIMENT RESULTS =====");
-        System.out.println("Total Requested Runs: " + RUNS);
-        System.out.println("Skipped (One or both blocked): " + skippedRuns);
-        System.out.println("Actual Valid Runs: " + actualRuns);
+        System.out.println("Target Valid Runs: " + RUNS);
+        System.out.println("Total Maps Generated: " + (validRuns + skippedRuns));
+        System.out.println("Skipped (Blocked) Maps: " + skippedRuns);
         System.out.println("Grid: " + Grid.ROWS + "x" + Grid.COLS + " | wallDensity=" + WALL_DENSITY);
         System.out.println("Max turns per run: " + MAX_TURNS);
         System.out.println("Minimax depth: " + MINIMAX_DEPTH + " | Pink lookahead: " + PINK_LOOKAHEAD);
         System.out.println();
 
-        if (actualRuns > 0) {
-            System.out.println("Chaser wins: " + chaserWins + " (" + pct(chaserWins, actualRuns) + "%)");
-            System.out.println("Escaper survives: " + escaperSurvives + " (" + pct(escaperSurvives, actualRuns) + "%)");
-            System.out.println("Avg survival/capture time (turns): " + (sumTurns / (double) actualRuns));
-            System.out.println();
-    
-            System.out.println("A* null path count (total calls): " + aStarNullCount);
-            System.out.println();
-    
-            System.out.println("Avg A* decision time (ms): " + (sumAStarTimeNs / 1e6));
-            System.out.println("Max A* decision time (ms): " + (maxAStarTimeNs / 1e6));
-            System.out.println("Total A* expanded nodes: " + sumAStarExpanded);
-            System.out.println();
-    
-            System.out.println("Avg Minimax decision time (ms): " + (sumMinimaxTimeNs / 1e6));
-            System.out.println("Max Minimax decision time (ms): " + (maxMinimaxTimeNs / 1e6));
-            System.out.println("Total Minimax evaluated states: " + sumMinimaxEvaluated);
-            System.out.println();
-    
-            System.out.println("Avg min-distance to escaper (Manhattan): " + (sumDistance / (double) sumTurns));
-            System.out.println("Avg Δdistance per turn (d_before - d_after): " + (sumDistanceDelta / (double) sumTurns));
-        } else {
-            System.out.println("No valid runs occurred!");
-        }
+        System.out.println("Chaser wins: " + chaserWins + " (" + pct(chaserWins, RUNS) + "%)");
+        System.out.println("Escaper survives: " + escaperSurvives + " (" + pct(escaperSurvives, RUNS) + "%)");
+        System.out.println("Avg survival/capture time (turns): " + (sumTurns / (double) RUNS));
+        System.out.println();
+
+        System.out.println("A* null path count (during game): " + aStarNullCount);
+        System.out.println();
+
+        System.out.println("Avg A* decision time (ms): " + (sumAStarTimeNs / 1e6));
+        System.out.println("Max A* decision time (ms): " + (maxAStarTimeNs / 1e6));
+        System.out.println("Total A* expanded nodes: " + sumAStarExpanded);
+        System.out.println();
+
+        System.out.println("Avg Minimax decision time (ms): " + (sumMinimaxTimeNs / 1e6));
+        System.out.println("Max Minimax decision time (ms): " + (maxMinimaxTimeNs / 1e6));
+        System.out.println("Total Minimax evaluated states: " + sumMinimaxEvaluated);
+        System.out.println();
+
+        System.out.println("Avg min-distance to escaper (Manhattan): " + (sumDistance / (double) sumTurns));
+        System.out.println("Avg Δdistance per turn (d_before - d_after): " + (sumDistanceDelta / (double) sumTurns));
         System.out.println("================================");
 
         if (SHOW_UI_AFTER) {
