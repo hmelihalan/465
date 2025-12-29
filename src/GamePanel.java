@@ -2,167 +2,156 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 
 public class GamePanel extends JPanel {
 
-    Grid grid = new Grid();
-    Chaser ch = new Chaser(0, 0);
-    Chaser ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2);
-    Escaper es = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
+    private final Grid grid;
+    private final Chaser ch1;
+    private final Chaser ch2;
+    private final Escaper es;
+    private final Timer timer;
 
-    public GamePanel() {
-        Scanner sc = new Scanner(System.in);
-        JFrame frame = new JFrame("Chaser vs Escaper");
-        frame.setSize(650, 650);
+    private int turn = 0;
+
+    // ---- AYARLAR ----
+    private static final int TILE = 40;
+    private static final int TIMER_MS = 350; // Hız yavaşlatıldı (izlenebilir hız)
+    private static final int MAX_TURNS = 70; // Escaper bu kadar dayanırsa kazanır
+
+    private static final int MCTS_ITERS = 600;
+    private static final int MCTS_ROLLOUT = 12;
+    // ------------------
+
+    public GamePanel(long seed, double wallDensity) {
+
+        this.grid = new Grid(seed, wallDensity);
+
+        this.ch1 = new Chaser(0, 0);
+        this.ch2 = new Chaser(Grid.ROWS / 2, Grid.COLS / 2);
+        this.es  = new Escaper(Grid.ROWS - 1, Grid.COLS - 1);
+
+        JFrame frame = new JFrame("Chaser vs Escaper (Tek Oyun)");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(Grid.COLS * TILE + 20, Grid.ROWS * TILE + 40);
         frame.add(this);
         frame.setVisible(true);
 
-        sc.nextLine();
-        gameLoop();
+        // Timer'ı değişkene atadık ki oyun bitince durdurabilelim
+        this.timer = new Timer(TIMER_MS, e -> step());
+        timer.start();
     }
 
-    private void gameLoop() {
-        while (true) {
+    // ---------------- STEP ----------------
+    private void step() {
+        turn++;
 
-            //-----------------------------
-            // CHASER 1 - A*
-            //-----------------------------
-            Node start = new Node(ch.r, ch.c);
-            Node goal = new Node(es.r, es.c);
-            List<Node> path = AStar.search(start, goal, grid);
+        System.out.printf(
+                "Turn %d | E=(%d,%d) C1=(%d,%d) C2=(%d,%d)%n",
+                turn, es.r, es.c, ch1.r, ch1.c, ch2.r, ch2.c
+        );
 
-            if (path != null && path.size() > 1) {
-                Node next = path.get(1);
-                if (!(next.r == ch2.r && next.c == ch2.c)) {
-                    ch.move(next.r, next.c);
-                }
+        // -------- CHASER 1 --------
+        List<Node> path1 = AStar.search(
+                new Node(ch1.r, ch1.c),
+                new Node(es.r, es.c),
+                grid
+        );
+
+        if (path1 != null && path1.size() > 1) {
+            Node n = path1.get(1);
+            if (!(n.r == ch2.r && n.c == ch2.c)) {
+                ch1.move(n.r, n.c);
             }
+        }
 
-            //-----------------------------
-            // CHASER 2 - Pink tarzı A*
-            //-----------------------------
-            Node start2 = new Node(ch2.r, ch2.c);
-            Node predicted = AStar.predictEscaperTarget(es, grid, 2);
-            List<Node> path2 = AStar.search(start2, predicted, grid);
+        // -------- CHASER 2 (Tahminli) --------
+        Node predicted = AStar.predictEscaperTarget(es, grid, 2);
+        List<Node> path2 = AStar.search(
+                new Node(ch2.r, ch2.c),
+                predicted,
+                grid
+        );
 
-            if (path2 != null && path2.size() > 1) {
-                Node next2 = path2.get(1);
-                if (!(next2.r == ch.r && next2.c == ch.c)) {
-                    ch2.move(next2.r, next2.c);
-                }
+        if (path2 != null && path2.size() > 1) {
+            Node n2 = path2.get(1);
+            if (!(n2.r == ch1.r && n2.c == ch1.c)) {
+                ch2.move(n2.r, n2.c);
             }
+        }
 
-            //-----------------------------
-            // COLLISION
-            //-----------------------------
-            if ((ch.r == es.r && ch.c == es.c) ||
-                    (ch2.r == es.r && ch2.c == es.c)) {
+        // -------- YAKALAMA KONTROLÜ (Escaper hamlesinden önce) --------
+        if (sameCell(ch1, es) || sameCell(ch2, es)) {
+            gameOver("Chasers kazandı! Tur: " + turn);
+            return;
+        }
 
-                JOptionPane.showMessageDialog(this, "Chasers Win!");
-                System.exit(0);
-            }
+        // -------- ESCAPER (MCTS) --------
+        List<Chaser> clist = new ArrayList<>();
+        clist.add(ch1);
+        clist.add(ch2);
 
-            //-----------------------------
-            // ESCAPER - NEURAL NETWORK
-            // (MINIMAX KALDIRILDI, SADECE BU SATIR EKLENDİ)
-            //-----------------------------
-            es.decideMove(ch, ch2, grid);
+        int[] mv = MCTS.bestMove(
+                clist, es, grid,
+                MCTS_ITERS, MCTS_ROLLOUT
+        );
 
-            repaint();
+        es.move(mv[0], mv[1]);
 
-            //-----------------------------
-            // COLLISION AGAIN
-            //-----------------------------
-            if ((ch.r == es.r && ch.c == es.c) ||
-                    (ch2.r == es.r && ch2.c == es.c)) {
+        repaint();
 
-                JOptionPane.showMessageDialog(this, "Chasers Win!");
-                System.exit(0);
-            }
+        // -------- YAKALAMA KONTROLÜ (Escaper hamlesinden sonra) --------
+        if (sameCell(ch1, es) || sameCell(ch2, es)) {
+            gameOver("Chasers kazandı! Tur: " + turn);
+            return;
+        }
 
-            try { Thread.sleep(300); }
-            catch (Exception ignored) {}
+        // -------- TUR LİMİTİ KONTROLÜ --------
+        if (turn >= MAX_TURNS) {
+            gameOver("Escaper kazandı! (Hayatta kaldı)");
         }
     }
 
+    private void gameOver(String message) {
+        timer.stop(); // Oyunu durdur
+        repaint();
+        JOptionPane.showMessageDialog(this, message);
+        // İsterseniz System.exit(0) ile tamamen kapatabilirsiniz:
+        // System.exit(0);
+    }
+
+    // ---------------- DRAW ----------------
     @Override
-    public void paint(Graphics g) {
-        super.paint(g);
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
 
-        int size = 40;
-
-        //-----------------------------
-        // GRID
-        //-----------------------------
         for (int r = 0; r < Grid.ROWS; r++) {
             for (int c = 0; c < Grid.COLS; c++) {
-
-                if (Grid.map[r][c] == 1)
-                    g.setColor(Color.BLACK);
-                else
-                    g.setColor(Color.WHITE);
-
-                g.fillRect(c * size, r * size, size, size);
+                g.setColor(grid.map[r][c] == 1 ? Color.BLACK : Color.WHITE);
+                g.fillRect(c * TILE, r * TILE, TILE, TILE);
                 g.setColor(Color.GRAY);
-                g.drawRect(c * size, r * size, size, size);
+                g.drawRect(c * TILE, r * TILE, TILE, TILE);
             }
         }
 
-        //-----------------------------
-        // PAC-MAN SETTINGS
-        //-----------------------------
-        int mouth = 60;
+        // Chaser 1 - KIRMIZI
+        g.setColor(Color.RED);
+        g.fillOval(ch1.c * TILE + 6, ch1.r * TILE + 6, TILE - 12, TILE - 12);
 
-        //-----------------------------
-        // CHASER 1
-        //-----------------------------
-        g.setColor(Color.green);
-        g.fillArc(
-                ch.c * size + 5,
-                ch.r * size + 5,
-                size - 10,
-                size - 10,
-                pacmanAngle(ch.dir, mouth),
-                360 - mouth
-        );
+        // Chaser 2 - SİYAH
+        g.setColor(Color.BLACK);
+        g.fillOval(ch2.c * TILE + 6, ch2.r * TILE + 6, TILE - 12, TILE - 12);
 
-        //-----------------------------
-        // CHASER 2
-        //-----------------------------
-        g.setColor(Color.cyan);
-        g.fillArc(
-                ch2.c * size + 5,
-                ch2.r * size + 5,
-                size - 10,
-                size - 10,
-                pacmanAngle(ch2.dir, mouth),
-                360 - mouth
-        );
+        // Escaper - MAVİ
+        g.setColor(Color.BLUE);
+        g.fillOval(es.c * TILE + 6, es.r * TILE + 6, TILE - 12, TILE - 12);
 
-        //-----------------------------
-        // ESCAPER
-        //-----------------------------
-        g.setColor(Color.MAGENTA);
-        g.fillOval(
-                es.c * size + 5,
-                es.r * size + 5,
-                size - 10,
-                size - 10
-        );
+        // Bilgi Yazısı
+        g.setColor(Color.BLACK);
+        g.drawString("Turn: " + turn + " / " + MAX_TURNS, 10, 15);
     }
 
-    //-----------------------------
-    // PAC-MAN DIRECTION ANGLE
-    //-----------------------------
-    private int pacmanAngle(int dir, int mouth) {
-        switch (dir) {
-            case 0: return mouth / 2;            // RIGHT
-            case 1: return 270 + mouth / 2;      // DOWN
-            case 2: return 180 + mouth / 2;      // LEFT
-            case 3: return 90 + mouth / 2;       // UP
-        }
-        return 0;
+    // ---------------- UTIL ----------------
+    private boolean sameCell(Agent a, Agent b) {
+        return a.r == b.r && a.c == b.c;
     }
 }

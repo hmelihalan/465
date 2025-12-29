@@ -2,45 +2,60 @@ import java.util.*;
 
 public class AStar {
 
-    private static Random rand = new Random();
+    private static final Random rand = new Random();
+
+    // --- STATS (last call) ---
+    private static long lastExpandedNodes = 0;
+
+    public static long getLastExpandedNodes() {
+        return lastExpandedNodes;
+    }
 
     public static List<Node> search(Node start, Node goal, Grid grid) {
+        lastExpandedNodes = 0;
+
         PriorityQueue<Node> open = new PriorityQueue<>(Comparator.comparingDouble(n -> n.f));
+        Map<Node, Double> bestG = new HashMap<>();
         HashSet<Node> closed = new HashSet<>();
 
         start.g = 0;
         start.h = manhattan(start, goal);
         start.f = start.g + start.h;
+        start.parent = null;
+
+        bestG.put(start, 0.0);
         open.add(start);
 
         while (!open.isEmpty()) {
 
             Node current = pollWithRandomTieBreak(open);
 
+            // stale record discard
+            double recordedBest = bestG.getOrDefault(current, Double.POSITIVE_INFINITY);
+            if (current.g > recordedBest) continue;
+
+            // count expansions (every time we "pop" a node to expand)
+            lastExpandedNodes++;
+
             if (current.equals(goal)) return reconstruct(current);
 
+            if (closed.contains(current)) continue;
             closed.add(current);
 
             for (Node nb : grid.getNeighbors(current)) {
                 if (closed.contains(nb)) continue;
 
-                double g_new = current.g + 1;
+                double gNew = current.g + 1.0;
+                double nbBest = bestG.getOrDefault(nb, Double.POSITIVE_INFINITY);
 
-                boolean better = false;
-
-                if (!open.contains(nb)) {
-                    better = true;
-                } else if (g_new < nb.g) {
-                    better = true;
-                }
-
-                if (better) {
+                if (gNew < nbBest) {
                     nb.parent = current;
-                    nb.g = g_new;
+                    nb.g = gNew;
                     nb.h = manhattan(nb, goal);
                     nb.f = nb.g + nb.h;
 
-                    open.add(nb);
+                    bestG.put(nb, gNew);
+                    open.add(nb); // duplicates OK; stale ones skipped later
                 }
             }
         }
@@ -75,9 +90,7 @@ public class AStar {
         return Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
     }
 
-    // -----------------------------
-    // PINK TAHMİN HEDEFİ
-    // -----------------------------
+    // Pink-style target prediction
     public static Node predictEscaperTarget(Escaper es, Grid grid, int lookahead) {
         int r = es.r;
         int c = es.c;
@@ -90,7 +103,6 @@ public class AStar {
                 int nc = c + d[1];
                 if (grid.isValid(nr, nc)) validMoves.add(new int[]{nr, nc});
             }
-
             if (validMoves.isEmpty()) break;
 
             int[] move = validMoves.get(rand.nextInt(validMoves.size()));

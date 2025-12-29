@@ -6,7 +6,7 @@ public class Grid {
     public static final int COLS = 20;
     public static int[][] map = new int[ROWS][COLS]; // 0 = empty, 1 = wall
 
-    public Grid() {
+    public Grid(long seed, double wallDensity) {
         generateWalls();
     }
 
